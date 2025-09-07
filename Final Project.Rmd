@@ -107,3 +107,12 @@ We will also set the train control method for it to use a 5 fold cross validatio
 ```{r}
 control <- trainControl(method='cv', number=5, verboseIter=F)
 ```
+
+## Decision Trees
+
+First we'll setup a decision tree
+
+```{r}
+mod_dt <- train(classe~., data=train, method="rpart", trControl = control, tuneLength = 5)
+fancyRpartPlot(mod_dt$finalModel)
+```
