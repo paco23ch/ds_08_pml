@@ -6,30 +6,104 @@ date: "2025-07-06"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(lattice)
+library(ggplot2)
+library(caret)
+library(kernlab)
+library(rattle)
+library(corrplot)
+set.seed(1234)
 ```
 
-## R Markdown
+# Overview
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+This is the final project for the Practical Machine Learning course in Coursera.  We will use the data describes in the Background section, and will procced to train a few models to compare to each other.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+# Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+
+They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: 
+http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har
+ (see the section on the Weight Lifting Exercise Dataset).
+ 
+# Data
+
+The training data for this project are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data being used was downloaded on July 6th 2025.
+
+## Setting up and reading the data
+
+We will be reading both the training and testing data in two separate dataframes
 
 ```{r}
 training = read.csv('pml-training.csv')
-head(training)
+testing = read.csv('pml-testing.csv')
+dim(training)
 ```
 
-## Including Plots
+## Cleaning the data
 
-You can also embed plots, for example:
+### Variability
+
+The first part of cleaning the data, will be to remove variables with near zero variablity, which will most likely not provide meaningful points to the models.
 
 ```{r}
-missing_cols = sapply(training, function(x) sum(is.na(x)) )
-missing_cols
+nearzero <- nearZeroVar(training)
+training <- training[,-nearzero]
+dim(training)
 ```
+### Relevancy
+
+We are looking at data that don't introduce bias and are relevant to the actual model, so we'll remove personally identificating data along with timestamps, since our focus will be the instant measures of the relevant sensors.
 
 ```{r}
-missing_cols
+training <- training[,-c(1:6)]
+dim(training)
+```
+### Missing data
+
+We also find the columns with missing variables.  After inspecting the data, columns either have all or none values, so we will use the threshold where the missing columns show at least one empty value.
+
+```{r}
+#missing_cols = sapply(training, function(x) sum(is.na(x)) )
+#missing_cols = names(missing_cols[missing_cols > 0])
+#training <- training[,!names(training) %in% missing_cols]
+
+# More efficient way to find the empty columns, but also including a threshold.
+training <- training[,colMeans(is.na(training)) < .9]
+
+dim(training)
+```
+### Generating cross-validation data
+
+Now we proceed to split the training data into validation and training to run cross-validation:
+
+```{r}
+inTrain <- createDataPartition(y=training$classe, p=0.7, list=F)
+
+train <- training[inTrain,]
+validate <- training[-inTrain,]
+
+dim(train)
+dim(validate)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+# Training models
+
+We will be testing a few models to compare results amongs them.  We will focus on:
+- Decision Trees
+- Random Forest
+- Gradient Boosted Trees
+- Support Vector Machines
+
+We will also set the train control method for it to use a 5 fold cross validation.
+
+```{r}
+control <- trainControl(method='cv', number=5, verboseIter=F)
+```
