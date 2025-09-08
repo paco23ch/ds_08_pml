@@ -45,6 +45,7 @@ We will be reading both the training and testing data in two separate dataframes
 training = read.csv('pml-training.csv')
 testing = read.csv('pml-testing.csv')
 dim(training)
+dim(testing)
 ```
 
 ## Cleaning the data
@@ -105,14 +106,79 @@ We will be testing a few models to compare results amongs them.  We will focus o
 We will also set the train control method for it to use a 5 fold cross validation.
 
 ```{r}
-control <- trainControl(method='cv', number=5, verboseIter=F)
+control <- trainControl(method='cv', number=3, verboseIter=F)
 ```
 
 ## Decision Trees
 
-First we'll setup a decision tree
+First we'll setup a decision tree, and see the model in a graph.
 
 ```{r}
 mod_dt <- train(classe~., data=train, method="rpart", trControl = control, tuneLength = 5)
 fancyRpartPlot(mod_dt$finalModel)
+```
+
+After that, we can use the validation data to see how it performs out-of-sample via the confusion matrix:
+
+```{r}
+prediction_dt <- predict(mod_dt, validate)
+confusion_dt <- confusionMatrix(prediction_dt, factor(validate$classe))
+confusion_dt
+```
+
+## Random Forests
+
+We do the same for Random Forests, but unfortunately we don't have a visual for it, except for generating the confusion matrix:
+
+```{r}
+mod_rf <- train(classe~., data=train, method="rf", trControl = control, tuneLength = 5, vebose=FALSE)
+
+prediction_rf <- predict(mod_rf, validate)
+confusion_rf <- confusionMatrix(prediction_rf, factor(validate$classe))
+confusion_rf
+```
+
+## Gradient Boosted Trees
+
+We do the same for Gradient Boosted Trees, and just as with above we will use the confusion matrix to grade the model:
+
+```{r}
+mod_gbm <- train(classe~., data=train, method="gbm", trControl = control, tuneLength = 5, verbose=FALSE)
+
+prediction_gbm <- predict(mod_gbm, validate)
+confusion_gbm <- confusionMatrix(prediction_gbm, factor(validate$classe))
+confusion_gbm
+```
+
+## Support Vector Machines
+
+We do the same for Support Vector Machines, and just as with above we will use the confusion matrix to grade the model:
+
+```{r}
+mod_svm <- train(classe~., data=train, method="svmLinear", trControl = control, tuneLength = 5)
+
+prediction_svm <- predict(mod_svm, validate)
+confusion_svm <- confusionMatrix(prediction_svm, factor(validate$classe))
+confusion_svm
+```
+
+## Summary for model selection
+
+As can be seen from the following chart, Decision Trees perform the worst from all the tested models.  We can see that Gradient Boosted Trees and Random Forest perform similarly, but Random Forests performs a bit higher, so we'll choose to validate the data, and expect to have a higher out of sample error, becase it will be unseen data, but it shouldn't be far apart, since both the train and test data should be coming from a similar distribution.
+
+```{r}
+models <- c("Decision Tree", "Random Forest", "Gradient Boosted Trees", "Support Vector Machines")
+accuracies <- round(c( confusion_dt$overall[1], confusion_rf$overall[1], confusion_gbm$overall[1], confusion_svm$overall[1]),3)
+out_of_sample_error <- 1 - accuracies
+
+data.frame(accuracy = accuracies, out_of_sample_error = out_of_sample_error, row.names = models)
+```
+
+# Testing on the sample set
+
+We run the predictions on new data, using the testing set.  The testing set doesn't have a target, so we cannot know if the predictions were correct, but we would assume somewhere close to the 99.6% accuracy Random Forest got when training, we don't expect a significant drop.
+
+```{r}
+pred <- predict(mod_rf, newdata = testing )
+print(pred)
 ```
